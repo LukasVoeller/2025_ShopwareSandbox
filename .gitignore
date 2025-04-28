@@ -1,0 +1,31 @@
+###> lukasvoeller/shopware-sandbox ###
+/custom/plugins/
+/composer.lock
+/.idea
+/vendor/
+*.iml
+###< lukasvoeller/shopware-sandbox ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+.phpunit.result.cache
+###< phpunit/phpunit ###
+
+###> shopware/core ###
+.env.local
+.env.local.php
+.env.*.local
+/auth.json
+/install.lock
+/public/asset-manifest.json
+/public/bundles/
+/public/media/
+/public/theme/
+/public/thumbnail/
+/public/sitemap/
+/files/
+/var/
+# Keep essential .htaccess files
+!/files/.htaccess
+!/var/.htaccess
+###< shopware/core ###

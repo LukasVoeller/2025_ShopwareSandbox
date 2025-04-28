@@ -1,0 +1,29 @@
+shopware:
+  auto_update:
+    enabled: false
+  admin_worker:
+    enable_admin_worker: false
+  mail:
+    update_mail_variables_on_send: false
+  cart:
+    expire_days: 7
+  increment:
+    user_activity:
+      type: "redis"
+      config:
+        url: "redis://%env(REDIS_SOCKET)%/1"
+    message_queue:
+      type: "redis"
+      config:
+        url: "redis://%env(REDIS_SOCKET)%/2"
+  number_range:
+    increment_storage: "Redis"
+    redis_url: "redis://%env(REDIS_SOCKET)%/3"
+  cache:
+    invalidation:
+      delay: 0
+      count: 150
+    tagging:
+      each_config: false
+      each_snippet: false
+      each_theme_config: false

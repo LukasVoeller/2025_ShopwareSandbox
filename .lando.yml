@@ -1,0 +1,167 @@
+name: shopware-sandbox
+
+recipe: symfony
+
+excludes:
+  - ".idea"
+  - ".lando/var"
+  - "var/cache"
+  - "vendor"
+  - "!vendor/store.shopware.com"
+
+services:
+  appserver:
+    api: 3
+    webroot: "./public"
+    type: "php:8.2"
+    via: "apache:2.4"
+    xdebug: false
+    composer_version: "2-latest"
+    config:
+      php: ".lando/php/php.ini"
+    ssl: true
+    sslExpose: false
+    overrides:
+      ports:
+        - "8080:8080"
+        - "9998:9998"
+        - "9999:9999"
+      environment:
+        PHP_IDE_CONFIG: "serverName=shopware"
+        XDEBUG_MODE: "debug,develop"
+        COMPOSER_HOME: "/app/.lando/var/composer"
+    build_as_root:
+      - ln -snf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+      - echo "Europe/Berlin" > /etc/timezone
+      - apt update && apt-get install -y libxslt1-dev nano ca-certificates curl gnupg
+      - docker-php-ext-install xsl
+      - curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+      - echo "deb [ signed-by=/usr/share/keyrings/nodesource.gpg ] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+      - apt update && apt install nodejs jq chromium-bsu chromium -y
+    run:
+      - cd /app && ln -snf ./.lando/.lando.env .env
+    scanner:
+      okCodes:
+        - 500
+      maxRedirects: 0
+      timeout: 5000
+      retry: 3
+
+  database:
+    api: 3
+    app_mount: disabled
+    type: "mysql:8.0"
+    config:
+      database: ".lando/mysql/my.cnf"
+    creds:
+      user: "shopware"
+      password: "shopware"
+      database: "shopware"
+    overrides:
+      image: "bitnami/mysql:8.0.34-debian-11-r65"
+    healthcheck:
+      command: mysql -uroot --silent --execute "SHOW DATABASES;"
+      retry: 5
+      delay: 1000
+
+  redis:
+    api: 3
+    app_mount: disabled
+    type: "redis:7"
+    portforward: true
+    persist: true
+    config:
+      server: ".lando/redis/redis.conf"
+
+  #  elasticsearch:
+  #    api: 3
+  #    app_mount: disabled
+  #    type: "elasticsearch:7"
+  #    portforward: true
+
+  mail:
+    api: 3
+    app_mount: disabled
+    type: "mailhog"
+    portforward: true
+    hogfrom:
+      - appserver
+
+tooling:
+  phpstan:
+    service: appserver
+    cmd: ./vendor/bin/phpstan analyse --memory-limit=-1 --xdebug
+    dir: /app
+    description: Analyse php code with PHPStan
+
+  ecs:
+    service: appserver
+    cmd: ./vendor/bin/ecs
+    dir: /app
+    description: Check code against code standard
+
+  prettier:
+    service: appserver
+    cmd: npx prettier . --write
+    dir: /app
+    description: Fixes code formatting using Prettier
+
+  composer:
+    service: appserver
+    cmd: composer
+    dir: /app
+    description: Runs composer commands
+
+  console:
+    service: appserver
+    cmd: php bin/console
+    dir: /app
+    description: Runs console commands
+
+  xdebug-on:
+    service: appserver
+    description: Enable xdebug for apache.
+    cmd: "docker-php-ext-enable xdebug && /etc/init.d/apache2 reload"
+    user: root
+
+  xdebug-off:
+    service: appserver
+    description: Disable xdebug for apache.
+    cmd: "rm /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && /etc/init.d/apache2 reload"
+    user: root
+
+  node:
+    service: appserver
+
+  npm:
+    service: appserver
+
+  build-js:
+    service: appserver
+    cmd: ./bin/build-js.sh
+    dir: /app
+    description: Build administration and storefront, including all plugins in var/plugins.json
+
+  build-storefront:
+    service: appserver
+    cmd: ./bin/build-storefront.sh
+    dir: /app
+    description: Just build the storefront. You need to have built the administration once
+
+  build-administration:
+    service: appserver
+    cmd: ./bin/build-administration.sh
+    dir: /app
+    description: Just build the administration
+
+  watch-storefront:
+    service: appserver
+    cmd: PROXY_URL=http://localhost:9998 ./bin/watch-storefront.sh
+    dir: /app
+    description: Watcher for storefront changes, recompile and reload page if required
+
+  watch-administration:
+    service: appserver
+    cmd: APP_URL=http://0.0.0.0 APP_ENV=dev PORT=8080 HOST=0.0.0.0 ESLINT_DISABLE=true ./bin/watch-administration.sh
+    dir: /app
+    description: Watcher for administration changes, recompile and reload page if required
